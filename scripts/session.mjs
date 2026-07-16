@@ -57,8 +57,18 @@ export async function gmSetRecording(on) {
   const client = requireClient();
   const active = activeSession();
   if (!client || !active) return;
-  if (on) await client.startRecording(active.sessionId);
-  else await client.stopRecording(active.sessionId);
+  try {
+    if (on) await client.startRecording(active.sessionId);
+    else await client.stopRecording(active.sessionId);
+  } catch (err) {
+    // 409 = the platform is already in the requested state (roster lag,
+    // double click). The next roster push syncs us — not an error.
+    if (err?.status === 409) {
+      console.warn("recorder-vtt | record toggle ignored:", err.message);
+      return;
+    }
+    throw err;
+  }
 }
 
 /** GM toggles a platform-enforced control on another participant. */
@@ -74,8 +84,20 @@ export async function gmToggleParticipant(pid, which) {
 export async function gmCloseForEveryone() {
   const client = requireClient();
   const active = activeSession();
-  if (!client || !active) return;
-  await client.closeForEveryone(active.sessionId);
+  // Guards are loud, and the local side ALWAYS tears down — the UI must
+  // never look stuck on a session the platform already forgot.
+  if (!client) return;
+  if (!active) {
+    ui.notifications.warn("Session Recorder: no active session recorded — clearing local state.");
+    teardown();
+    renderSettingsIfOpen();
+    return;
+  }
+  try {
+    await client.closeForEveryone(active.sessionId);
+  } catch (err) {
+    ui.notifications.warn(`Session Recorder: platform close failed (${err.message}) — closing locally anyway.`);
+  }
   await game.settings.set(MOD, "activeSession", "");
   game.socket.emit(SOCKET, { action: "session-closed" });
   teardown("Session closed. Keep this window open until uploads reach 100%.");
@@ -163,6 +185,7 @@ function onRoster(roster) {
   }
   const status = roster.session.status;
   if (status === "recording" && !state.recordingOn) {
+    state.recordPending = false;
     state.recordingOn = true;
     state.room.startRecording("cam", state.camStream).catch((err) => {
       state.recordingOn = false;
@@ -176,6 +199,7 @@ function onRoster(roster) {
     refreshToolbar();
   }
   if (status !== "recording" && state.recordingOn && !state.draining) {
+    state.recordPending = false;
     state.recordingOn = false;
     state.draining = true;
     state.room.stopRecording();

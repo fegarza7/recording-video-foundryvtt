@@ -16,6 +16,8 @@ export const state = {
   camStream: null,
   recordingOn: false,
   draining: false,
+  /** Set while a start/stop request is in flight; cleared by the next roster status change. */
+  recordPending: false,
 };
 
 export const activeSession = () => {

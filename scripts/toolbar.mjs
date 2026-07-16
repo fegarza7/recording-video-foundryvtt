@@ -66,10 +66,13 @@ function registerToolbar() {
         // Plain button + live state (see 'window' tool note): if the
         // session is recording, stop; otherwise start.
         onChange: () => {
+          if (state.recordPending) return; // ignore clicks until the roster confirms
           if (!activeSession() || !state.room) {
             ui.notifications.warn("Session Recorder: create a session first (Sessions & connection).");
             return;
           }
+          state.recordPending = true;
+          setTimeout(() => (state.recordPending = false), 6000); // safety valve
           const status = state.room.roster?.session.status;
           gmSetRecording(status !== "recording").catch(errNotify);
         },
