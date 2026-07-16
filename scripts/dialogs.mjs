@@ -137,6 +137,39 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     a.click();
     a.remove();
   }
+  /** Typed-name confirmation, same rule as the platform dashboard. */
+  async deleteSession(sessionId) {
+    const client = requireClient();
+    const ses = this.sessions.find((s) => s.id === sessionId);
+    if (!client || !ses) return;
+    if (activeSession()?.sessionId === sessionId) {
+      ui.notifications.warn("Session Recorder: end the session for everyone before deleting it.");
+      return;
+    }
+    const typed = await foundry.applications.api.DialogV2.prompt({
+      window: { title: "Delete session" },
+      content: `<p>This deletes <b>every player's recording</b> after a 7-day grace period (you can restore it until then).</p>
+                <p>Type <b>${ses.name}</b> to confirm:</p>
+                <input type="text" name="recvtt-confirm" autocomplete="off" autofocus />`,
+      ok: { label: "Delete", callback: (_event, button) => button.form.elements["recvtt-confirm"].value },
+      rejectClose: false,
+    });
+    if (typed === null || typed === undefined) return; // dismissed
+    if (typed !== ses.name) {
+      ui.notifications.warn("Session Recorder: the name didn't match — nothing was deleted.");
+      return;
+    }
+    await client.deleteSession(sessionId, typed);
+    ui.notifications.info("Session Recorder: session scheduled for deletion — restore any time within 7 days.");
+    await this.load();
+  }
+  async restoreSession(sessionId) {
+    const client = requireClient();
+    if (!client) return;
+    await client.restoreSession(sessionId);
+    ui.notifications.info("Session Recorder: session restored.");
+    await this.load();
+  }
   async _prepareContext(_options) {
     const activeId = activeSession()?.sessionId;
     return {
@@ -147,19 +180,34 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
         status: ses.status,
         isCurrent: ses.id === activeId,
         created: new Date(ses.created_at).toLocaleDateString(),
+        deleted: !!ses.deleted_at,
+        purgeAfter: ses.purge_after ? new Date(ses.purge_after).toLocaleString() : "",
         expanded: this.expanded?.id === ses.id ? this.expanded : null,
       })),
     };
   }
   _onRender(_context, _options) {
     const el = this.element;
-    el.querySelectorAll("[data-session]").forEach((row) =>
-      row.addEventListener("click", () => this.expand(row.dataset.session).catch(errNotify)),
-    );
+    el.querySelectorAll("[data-session]").forEach((row) => {
+      if (row.classList.contains("rec-deleted")) return; // no detail while pending deletion
+      row.addEventListener("click", () => this.expand(row.dataset.session).catch(errNotify));
+    });
     el.querySelectorAll("[data-track]").forEach((btn) =>
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.download(btn.dataset.track).catch(errNotify);
+      }),
+    );
+    el.querySelectorAll("[data-recvtt-del]").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.deleteSession(btn.dataset.recvttDel).catch(errNotify);
+      }),
+    );
+    el.querySelectorAll("[data-recvtt-restore]").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.restoreSession(btn.dataset.recvttRestore).catch(errNotify);
       }),
     );
   }

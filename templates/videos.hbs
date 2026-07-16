@@ -1,11 +1,20 @@
 <div>
   {{#if loading}}<p class="rec-status">Loading sessions…</p>{{/if}}
   {{#each sessions}}
-    <div class="rec-session" data-session="{{id}}">
+    <div class="rec-session {{#if deleted}}rec-deleted{{/if}}" data-session="{{id}}">
       <div class="rec-session-head">
         <span><b>{{name}}</b>{{#if isCurrent}} <span class="rec-current">current</span>{{/if}}</span>
         <span class="rec-muted">{{created}} · {{status}}</span>
+        {{#unless deleted}}
+          <button type="button" class="rec-icon-btn" data-recvtt-del="{{id}}" title="Delete session"><i class="fas fa-trash"></i></button>
+        {{/unless}}
       </div>
+      {{#if deleted}}
+        <div class="rec-restore-row">
+          <span class="rec-muted">To be deleted on {{purgeAfter}} — recordings kept until then.</span>
+          <button type="button" data-recvtt-restore="{{id}}"><i class="fas fa-trash-restore"></i> Restore</button>
+        </div>
+      {{/if}}
       {{#if expanded}}
         <ul class="rec-tracks">
           {{#each expanded.tracks}}

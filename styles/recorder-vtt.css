@@ -186,6 +186,27 @@ li:has(> [data-tool="recvtt-anchor"]) {
   width: 30px;
   flex: 0 0 auto;
 }
+.recvtt-videos .rec-icon-btn {
+  width: 26px;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+.recvtt-videos .rec-deleted {
+  opacity: 0.6;
+  cursor: default;
+}
+.recvtt-videos .rec-restore-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.recvtt-videos .rec-restore-row button {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 2px 10px;
+}
 
 /* ---- the streamable area box ---- */
 #recvtt-area {
