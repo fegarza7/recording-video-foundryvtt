@@ -193,16 +193,24 @@ function onRoster(roster) {
 
 export function teardown(message) {
   // The close arrives on two channels (platform control + module
-  // socket); only announce and clean up once.
+  // socket); only announce and clean up once. Every step is isolated so
+  // one failure can't leave the session half-alive.
   const wasActive = !!state.room || !!state.camStream;
-  state.room?.leave();
+  const safely = (fn) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error("recorder-vtt | teardown step failed", err);
+    }
+  };
+  safely(() => state.room?.leave());
   state.room = null;
   state.recordingOn = false;
-  state.camStream?.getTracks().forEach((t) => t.stop());
+  safely(() => state.camStream?.getTracks().forEach((t) => t.stop()));
   state.camStream = null;
-  screenShare.stop();
-  areaBox.remove();
-  for (const pid of [...camWindows.keys()]) closeCamWindow(pid);
+  safely(() => screenShare.stop());
+  safely(() => areaBox.remove());
+  for (const pid of [...camWindows.keys()]) safely(() => closeCamWindow(pid));
   if (message && wasActive) ui.notifications.info(`Session Recorder: ${message}`);
-  refreshToolbar();
+  safely(() => refreshToolbar());
 }

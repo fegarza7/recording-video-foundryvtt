@@ -73,11 +73,18 @@ function openCamWindow(pid, title, stream) {
     camWindows.set(pid, win);
   }
   win.setStream(stream);
-  win.render({ force: true });
+  Promise.resolve(win.render({ force: true })).catch((err) =>
+    console.error("recorder-vtt | cam window render failed", err),
+  );
 }
 
 function closeCamWindow(pid) {
-  camWindows.get(pid)?.close();
+  // A window whose render failed must never block teardown.
+  try {
+    camWindows.get(pid)?.close();
+  } catch (err) {
+    console.error("recorder-vtt | cam window close failed", err);
+  }
   camWindows.delete(pid);
   audioEls.get(pid)?.remove();
   audioEls.delete(pid);

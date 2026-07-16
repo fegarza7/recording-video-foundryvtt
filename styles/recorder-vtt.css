@@ -43,6 +43,13 @@ li:has(> [data-tool="recvtt-anchor"]) {
   overflow: hidden;
   position: relative;
 }
+/* AppV2 parts need a single root; this wrapper is it. Absolute-positioned
+   badges/controls anchor here. */
+.recvtt-cam .recvtt-cam-body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
 .recvtt-cam video {
   width: 100%;
   height: 100%;
