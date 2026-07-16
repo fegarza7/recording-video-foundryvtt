@@ -40,7 +40,8 @@ export function onSocketMessage(msg) {
 export async function gmCreateSession() {
   const client = requireClient();
   if (!client) return;
-  const name = `${game.world.title} — ${new Date().toLocaleDateString()}`;
+  // Plain hyphen: users must be able to TYPE this name (delete confirmation).
+  const name = `${game.world.title} - ${new Date().toLocaleDateString()}`;
   const { session } = await client.createSession(name);
   await game.settings.set(
     MOD,
