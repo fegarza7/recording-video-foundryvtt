@@ -1,7 +1,6 @@
 /**
- * Cam windows: one floating ApplicationV2 tile per participant, the
- * cam/mic state that rides the Foundry socket, and the per-client cam
- * window layout persistence (position/size remembered per display name).
+ * Cam windows: one floating tile per participant, the cam/mic state that
+ * rides the Foundry socket, and per-client window layout persistence.
  */
 import { MOD, SOCKET, MYSTERY_MAN, setting, state, participantName, errNotify } from "./state.mjs";
 import { gmToggleParticipant } from "./session.mjs";

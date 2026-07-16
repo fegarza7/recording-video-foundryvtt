@@ -1,9 +1,5 @@
 /**
- * Session Recorder — FoundryVTT module, first real consumer of
- * window.RecorderSDK (scripts/recorder-sdk.js, bundled from @recorder/sdk).
- *
- * Entry point: settings registration, ready wiring, socket dispatch.
- * Feature code lives in focused modules — see each file's header.
+ * Module entry point: settings registration, ready wiring, socket dispatch.
  */
 import { MOD, SOCKET, sdk, activeSession } from "./state.mjs";
 import { onSocketMessage, promptJoin } from "./session.mjs";

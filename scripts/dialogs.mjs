@@ -1,7 +1,6 @@
 /**
- * The two "control panel" windows: Settings (sessions & connection) and
- * Videos (sessions & downloads browser). Both are ApplicationV2 +
- * HandlebarsApplicationMixin apps — plain HTMLElement DOM, no jQuery.
+ * The two control-panel windows: Settings (sessions & connection) and
+ * Videos (sessions & downloads browser).
  */
 import { MOD, sdk, state, activeSession, requireClient, errNotify } from "./state.mjs";
 import { gmCreateSession, gmCloseForEveryone, promptJoin } from "./session.mjs";

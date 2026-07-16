@@ -47,9 +47,8 @@ const screenShare = {
     await this._publish("streaming the boxed area");
   },
 
-  /** Straight to the browser picker: tab, window, or entire screen.
-   *  selfBrowserSurface puts THIS tab back in the Chrome Tab list —
-   *  Chrome hides the calling tab from itself by default. */
+  /** Straight to the browser picker (tab/window/screen). selfBrowserSurface
+   *  re-includes this tab — Chrome hides the caller's own tab by default. */
   async startWindow() {
     if (!state.room) {
       ui.notifications.warn("Session Recorder: join the session first (Sessions & connection).");

@@ -1,8 +1,6 @@
 /**
- * Shared module state and tiny helpers. This is the only file with
- * mutable cross-cutting state — everything else imports from here, which
- * keeps the import graph acyclic at evaluation time (circular imports
- * between feature modules are call-time only).
+ * Shared module state and tiny helpers — the only file with mutable
+ * cross-cutting state; everything else imports from here.
  */
 export const MOD = "recorder-vtt";
 export const SOCKET = `module.${MOD}`;

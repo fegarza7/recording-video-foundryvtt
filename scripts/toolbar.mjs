@@ -1,7 +1,6 @@
 /**
- * Toolbar: one scene-controls group (video icon) whose tools are the whole
- * UX — Settings (session window), Stream area/window, Record toggle,
- * Videos (sessions & downloads browser).
+ * Toolbar: one scene-controls group whose tools are the whole UX —
+ * Settings, Stream area/window, Record toggle, Videos.
  */
 import { MOD, state, activeSession, errNotify } from "./state.mjs";
 import { gmSetRecording } from "./session.mjs";
@@ -51,9 +50,8 @@ function registerToolbar() {
         icon: "fas fa-desktop",
         button: true,
         order: 2.5,
-        // Plain button + live state: Foundry toggle semantics differ
-        // across versions and re-fire on toolbar rebuilds — never trust
-        // the `active` argument, decide from what's actually happening.
+        // Plain button, not a toggle — never trust an `active` argument,
+        // decide from actual state.
         onChange: () => {
           if (screenShare.mode === "window") screenShare.stop("window");
           else screenShare.startWindow().catch(errNotify);
@@ -114,9 +112,7 @@ function registerToolbar() {
 }
 
 /**
- * All stateful visuals are DOM patches: Foundry's config rebuild
- * (initialize) is deprecated in v13+ AND re-fires tool callbacks as a
- * side effect — the source of a stop-before-start 409. Never rebuild;
+ * All stateful visuals are DOM patches — never rebuild the toolbar config;
  * just repaint the two stateful buttons.
  */
 const refreshToolbar = () => {
