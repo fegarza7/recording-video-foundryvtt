@@ -1,0 +1,26 @@
+<div>
+  {{#if loading}}<p class="rec-status">Loading sessions…</p>{{/if}}
+  {{#each sessions}}
+    <div class="rec-session" data-session="{{id}}">
+      <div class="rec-session-head">
+        <span><b>{{name}}</b>{{#if isCurrent}} <span class="rec-current">current</span>{{/if}}</span>
+        <span class="rec-muted">{{created}} · {{status}}</span>
+      </div>
+      {{#if expanded}}
+        <ul class="rec-tracks">
+          {{#each expanded.tracks}}
+            <li>
+              <span>{{label}}<br /><span class="rec-muted">{{when}} · {{size}}</span></span>
+              {{#if complete}}
+                <button type="button" data-track="{{id}}" title="Download"><i class="fas fa-download"></i></button>
+              {{else}}
+                <span class="rec-muted">uploading…</span>
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      {{/if}}
+    </div>
+  {{/each}}
+  {{#unless sessions.length}}{{#unless loading}}<p class="rec-status">No sessions yet.</p>{{/unless}}{{/unless}}
+</div>

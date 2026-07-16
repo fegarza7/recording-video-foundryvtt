@@ -1,0 +1,34 @@
+<div>
+  <p class="rec-status">
+    Session: <b>{{status}}</b>
+    {{#if uploadLine}}<br />{{uploadLine}}{{/if}}
+    {{#if recordingError}}<br /><span class="rec-danger">{{recordingError}}</span>{{/if}}
+  </p>
+
+  {{#if isGM}}
+    {{#unless hasSession}}
+      <div class="rec-row"><button type="button" data-action="create"><i class="fas fa-plus"></i> Create session</button></div>
+    {{/unless}}
+    {{#if hasSession}}
+      <div class="rec-row"><button type="button" data-action="close" class="rec-danger"><i class="fas fa-power-off"></i> End session for everyone</button></div>
+    {{/if}}
+  {{/if}}
+
+  {{#if hasSession}}
+    {{#unless joined}}
+      <div class="rec-row"><button type="button" data-action="join"><i class="fas fa-video"></i> Join with webcam</button></div>
+    {{/unless}}
+  {{/if}}
+
+  {{#if participants.length}}
+    <ul class="rec-participants">
+      {{#each participants}}
+        <li><span>{{name}}</span><span>{{uploaded}}</span></li>
+      {{/each}}
+    </ul>
+  {{/if}}
+
+  {{#if isGM}}
+    <p class="rec-status">Recording is controlled from the toolbar (circle icon). Downloads live in the sessions browser (film icon).</p>
+  {{/if}}
+</div>

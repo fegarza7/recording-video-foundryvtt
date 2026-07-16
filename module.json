@@ -1,0 +1,29 @@
+{
+  "id": "recorder-vtt",
+  "title": "Session Recorder",
+  "description": "Records every player's webcam locally in full quality while you play, uploading resumably in the background. Live webcam windows for the whole party; the GM controls recording and downloads the finished files from the dashboard.",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "14"
+  },
+  "authors": [
+    {
+      "name": "Fernando Garza"
+    }
+  ],
+  "url": "https://github.com/fegarza7/recording-video-foundryvtt",
+  "bugs": "https://github.com/fegarza7/recording-video-foundryvtt/issues",
+  "manifest": "https://github.com/fegarza7/recording-video-foundryvtt/releases/latest/download/module.json",
+  "download": "https://github.com/fegarza7/recording-video-foundryvtt/releases/download/v1.0.0/module.zip",
+  "scripts": [
+    "scripts/recorder-sdk.js"
+  ],
+  "esmodules": [
+    "scripts/main.mjs"
+  ],
+  "styles": [
+    "styles/recorder-vtt.css"
+  ],
+  "socket": true
+}

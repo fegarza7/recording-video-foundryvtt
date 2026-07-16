@@ -1,0 +1,240 @@
+/* ---- toolbar: hide the structural anchor tool (groups require an
+       activeTool; a real button there would auto-fire on submenu open) ---- */
+#scene-controls-tools button[data-tool="recvtt-anchor"],
+#scene-controls-tools [data-tool="recvtt-anchor"],
+li.scene-control-tool[data-tool="recvtt-anchor"],
+.scene-control-tool[data-tool="recvtt-anchor"],
+/* ...and the list-item wrapper around it, which otherwise keeps its
+   padded slot and misaligns the submenu */
+#scene-controls-tools li:has([data-tool="recvtt-anchor"]),
+li:has(> [data-tool="recvtt-anchor"]) {
+  display: none !important;
+}
+
+/* Record tool: red while recording; window tool: teal while sharing
+   (classes applied by the DOM patcher). */
+[data-tool="record"].recvtt-recording,
+[data-tool="record"].recvtt-recording i {
+  color: #e24b4a !important;
+}
+[data-tool="window"].recvtt-sharing,
+[data-tool="window"].recvtt-sharing i {
+  color: #5dcaa5 !important;
+}
+
+/* Cam window buttons: GM enforcement + locked-by-GM states. */
+.recvtt-cam .recvtt-cam-controls button.recvtt-gm {
+  border-color: #8a6d3b;
+}
+.recvtt-cam .recvtt-cam-controls button.recvtt-enforced {
+  background: #4a1b1b;
+  color: #f09595;
+  border-color: #6b3535;
+}
+.recvtt-cam .recvtt-cam-controls button.recvtt-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- cam windows ---- */
+.recvtt-cam .window-content {
+  padding: 0;
+  background: #191918;
+  overflow: hidden;
+  position: relative;
+}
+.recvtt-cam video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.recvtt-cam .recvtt-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border: none;
+  background: #242422;
+}
+.recvtt-cam .recvtt-recdot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e24b4a;
+  z-index: 3;
+}
+.recvtt-cam .recvtt-stale {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f0997b;
+  background: rgba(20, 20, 19, 0.85);
+  font-size: 12px;
+  z-index: 2;
+}
+.recvtt-cam .recvtt-micoff {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  color: #f09595;
+  text-shadow: 0 1px 2px #000;
+  z-index: 3;
+}
+.recvtt-cam .recvtt-cam-controls {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 6px;
+  z-index: 3;
+}
+.recvtt-cam .window-content:hover .recvtt-cam-controls {
+  display: flex;
+}
+.recvtt-cam .recvtt-cam-controls button {
+  width: 32px;
+  height: 26px;
+  line-height: 1;
+  background: rgba(20, 20, 19, 0.85);
+  color: #e8e6df;
+  border: 1px solid #44433f;
+  border-radius: 6px;
+}
+
+/* ---- settings / videos windows ---- */
+.recvtt-control .rec-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 4px 0;
+}
+.recvtt-control .rec-row button {
+  flex: 1;
+}
+.recvtt-control .rec-status {
+  font-size: 12px;
+  opacity: 0.85;
+  margin: 6px 0;
+}
+.recvtt-control .rec-participants {
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.recvtt-control .rec-participants li {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.recvtt-control .rec-danger {
+  color: #a32d2d;
+}
+.recvtt-videos .rec-session {
+  border: 1px solid var(--color-border-light-tertiary, #7a7971);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  cursor: pointer;
+}
+.recvtt-videos .rec-session-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.recvtt-videos .rec-current {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #e1f5ee;
+  color: #0f6e56;
+}
+.recvtt-videos .rec-muted {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.recvtt-videos .rec-tracks {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px dashed var(--color-border-light-tertiary, #7a7971);
+}
+.recvtt-videos .rec-tracks li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.recvtt-videos .rec-tracks button {
+  width: 30px;
+  flex: 0 0 auto;
+}
+
+/* ---- the streamable area box ---- */
+#recvtt-area {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none; /* the frame is see-through & click-through... */
+}
+#recvtt-area .recvtt-area-toolbar,
+#recvtt-area .recvtt-area-handle {
+  pointer-events: all; /* ...only its chrome is interactive */
+}
+#recvtt-area .recvtt-area-toolbar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 28px;
+  padding: 0 4px;
+  background: rgba(20, 20, 19, 0.9);
+  border-radius: 6px 6px 0 0;
+  width: fit-content;
+}
+#recvtt-area .recvtt-area-toolbar button {
+  height: 22px;
+  line-height: 1;
+  font-size: 11px;
+  width: auto;
+  padding: 0 8px;
+  background: #242422;
+  color: #e8e6df;
+  border: 1px solid #44433f;
+  border-radius: 4px;
+}
+#recvtt-area .recvtt-area-grip {
+  cursor: move;
+  color: #e8e6df;
+  padding: 0 6px;
+}
+#recvtt-area .recvtt-area-frame {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px dashed #e24b4a;
+  border-radius: 2px;
+}
+#recvtt-area.recvtt-streaming .recvtt-area-frame {
+  border-style: solid;
+}
+#recvtt-area .recvtt-area-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: #e24b4a;
+  border-radius: 50%;
+  cursor: nwse-resize;
+}
