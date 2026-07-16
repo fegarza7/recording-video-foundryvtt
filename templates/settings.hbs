@@ -7,16 +7,16 @@
 
   {{#if isGM}}
     {{#unless hasSession}}
-      <div class="rec-row"><button type="button" data-action="create"><i class="fas fa-plus"></i> Create session</button></div>
+      <div class="rec-row"><button type="button" data-recvtt="create"><i class="fas fa-plus"></i> Create session</button></div>
     {{/unless}}
     {{#if hasSession}}
-      <div class="rec-row"><button type="button" data-action="close" class="rec-danger"><i class="fas fa-power-off"></i> End session for everyone</button></div>
+      <div class="rec-row"><button type="button" data-recvtt="close" class="rec-danger"><i class="fas fa-power-off"></i> End session for everyone</button></div>
     {{/if}}
   {{/if}}
 
   {{#if hasSession}}
     {{#unless joined}}
-      <div class="rec-row"><button type="button" data-action="join"><i class="fas fa-video"></i> Join with webcam</button></div>
+      <div class="rec-row"><button type="button" data-recvtt="join"><i class="fas fa-video"></i> Join with webcam</button></div>
     {{/unless}}
   {{/if}}
 

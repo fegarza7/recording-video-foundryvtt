@@ -59,9 +59,9 @@ class SettingsWindow extends HandlebarsApplicationMixin(ApplicationV2) {
   }
   _onRender(_context, _options) {
     const el = this.element;
-    el.querySelector("[data-action=create]")?.addEventListener("click", () => gmCreateSession().catch(errNotify));
-    el.querySelector("[data-action=close]")?.addEventListener("click", () => gmCloseForEveryone().catch(errNotify));
-    el.querySelector("[data-action=join]")?.addEventListener("click", () => {
+    el.querySelector("[data-recvtt=create]")?.addEventListener("click", () => gmCreateSession().catch(errNotify));
+    el.querySelector("[data-recvtt=close]")?.addEventListener("click", () => gmCloseForEveryone().catch(errNotify));
+    el.querySelector("[data-recvtt=join]")?.addEventListener("click", () => {
       const active = activeSession();
       if (active) promptJoin(active.invite, true);
     });
