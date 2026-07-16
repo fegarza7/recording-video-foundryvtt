@@ -186,6 +186,12 @@ li:has(> [data-tool="recvtt-anchor"]) {
   width: 30px;
   flex: 0 0 auto;
 }
+/* Long session lists scroll inside the window instead of overflowing it. */
+.recvtt-videos .window-content {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
 .recvtt-videos .rec-icon-btn {
   width: 26px;
   flex: 0 0 auto;
