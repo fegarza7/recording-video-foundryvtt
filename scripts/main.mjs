@@ -45,6 +45,13 @@ Hooks.once("ready", () => {
     return;
   }
   game.socket.on(SOCKET, onSocketMessage);
+  // Anything that never reached 100% (closed tab, ended session) drains now.
+  sdk()
+    .resumePendingUploads(game.settings.get(MOD, "apiBase"))
+    .then(({ resumed }) => {
+      if (resumed > 0) ui.notifications.info(`Session Recorder: resumed ${resumed} unfinished upload(s) — now safe.`);
+    })
+    .catch(() => {});
   // If a session is already live (player refreshed mid-game), offer to rejoin.
   const active = activeSession();
   if (active) promptJoin(active.invite, true);

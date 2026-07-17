@@ -114,10 +114,21 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     const saved = savedLayout(
       pid === "self" ? game.user.name : (state.room?.roster?.participants.find((p) => p.id === pid)?.display_name ?? pid),
     );
+    // No saved layout: cascade small windows along the bottom-left,
+    // self first, each next one to the right.
+    const W = 240;
+    const H = 170;
+    const order = camWindows.size;
+    const fallback = {
+      width: W,
+      height: H,
+      left: 10 + order * (W + 10),
+      top: Math.max(10, window.innerHeight - H - 90),
+    };
     super({
       id: `recvtt-cam-${pid}`,
       window: { title },
-      position: saved ? { left: saved.left, top: saved.top, width: saved.width, height: saved.height } : {},
+      position: saved ? { left: saved.left, top: saved.top, width: saved.width, height: saved.height } : fallback,
     });
     this.pid = pid;
     this.stream = null;

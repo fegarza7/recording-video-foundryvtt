@@ -2,7 +2,7 @@
  * The two control-panel windows: Settings (sessions & connection) and
  * Videos (sessions & downloads browser).
  */
-import { MOD, sdk, state, activeSession, requireClient, errNotify } from "./state.mjs";
+import { MOD, SOCKET, sdk, state, activeSession, requireClient, errNotify } from "./state.mjs";
 import { gmCreateSession, gmCloseForEveryone, promptJoin } from "./session.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -170,6 +170,21 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     ui.notifications.info("Session Recorder: session restored.");
     await this.load();
   }
+  /** Make a previous session the active one again — players are re-invited,
+   *  and recording can continue as new cycles on the same session. */
+  async reactivateSession(sessionId) {
+    const ses = this.sessions.find((s) => s.id === sessionId);
+    if (!ses || !ses.invite_token) return;
+    if (state.room) {
+      ui.notifications.warn("Session Recorder: leave/close the current session first.");
+      return;
+    }
+    await game.settings.set(MOD, "activeSession", JSON.stringify({ sessionId: ses.id, invite: ses.invite_token }));
+    game.socket.emit(SOCKET, { action: "session-started", invite: ses.invite_token });
+    ui.notifications.info(`Session Recorder: "${ses.name}" is active again — players are being invited.`);
+    await promptJoin(ses.invite_token, true);
+    this.render({ force: true });
+  }
   async _prepareContext(_options) {
     const activeId = activeSession()?.sessionId;
     return {
@@ -182,6 +197,7 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
         created: new Date(ses.created_at).toLocaleDateString(),
         deleted: !!ses.deleted_at,
         purgeAfter: ses.purge_after ? new Date(ses.purge_after).toLocaleString() : "",
+        canReactivate: !ses.deleted_at && ses.id !== activeId,
         expanded: this.expanded?.id === ses.id ? this.expanded : null,
       })),
     };
@@ -208,6 +224,12 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.restoreSession(btn.dataset.recvttRestore).catch(errNotify);
+      }),
+    );
+    el.querySelectorAll("[data-recvtt-react]").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.reactivateSession(btn.dataset.recvttReact).catch(errNotify);
       }),
     );
   }

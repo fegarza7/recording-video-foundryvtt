@@ -6,6 +6,9 @@
         <span><b>{{name}}</b>{{#if isCurrent}} <span class="rec-current">current</span>{{/if}}</span>
         <span class="rec-muted">{{created}} · {{status}}</span>
         {{#unless deleted}}
+          {{#if canReactivate}}
+            <button type="button" class="rec-icon-btn" data-recvtt-react="{{id}}" title="Reactivate this session (players re-invited, record more)"><i class="fas fa-play"></i></button>
+          {{/if}}
           <button type="button" class="rec-icon-btn" data-recvtt-del="{{id}}" title="Delete session"><i class="fas fa-trash"></i></button>
         {{/unless}}
       </div>

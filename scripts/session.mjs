@@ -21,6 +21,10 @@ export function onSocketMessage(msg) {
     case "session-started":
       promptJoin(msg.invite, false);
       break;
+    case "join-nudge":
+      // Re-prompt anyone who missed (or dismissed) the original invite.
+      if (!state.room && msg.invite) promptJoin(msg.invite, false);
+      break;
     case "session-closed":
       teardown("The GM closed the recording session.");
       break;
@@ -59,8 +63,14 @@ export async function gmSetRecording(on) {
   const active = activeSession();
   if (!client || !active) return;
   try {
-    if (on) await client.startRecording(active.sessionId);
-    else await client.stopRecording(active.sessionId);
+    if (on) {
+      await client.startRecording(active.sessionId);
+      // Nudge anyone who never joined — recording starting is the moment
+      // it matters most that everyone's camera is in.
+      game.socket.emit(SOCKET, { action: "join-nudge", invite: active.invite });
+    } else {
+      await client.stopRecording(active.sessionId);
+    }
   } catch (err) {
     // 409 = the platform is already in the requested state (roster lag,
     // double click). The next roster push syncs us — not an error.
@@ -126,13 +136,51 @@ export async function promptJoin(invite, isRejoin) {
   }
 }
 
+const CAM_CONSTRAINTS = {
+  video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+  audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+};
+
+/** Re-acquire and hot-swap when a camera/mic track dies (device off,
+ *  permission blip, OS switch) — the failure that used to require F5. */
+function watchCamTracks() {
+  for (const t of state.camStream?.getTracks() ?? []) {
+    t.addEventListener("ended", () => reacquireCamera().catch(errNotify), { once: true });
+  }
+}
+
+async function reacquireCamera() {
+  if (!state.room || !state.camStream) return;
+  ui.notifications.warn("Session Recorder: camera or mic lost — reconnecting…");
+  state.room.log("warn", "cam-reacquire");
+  let fresh;
+  try {
+    fresh = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+  } catch (err) {
+    state.room.log("error", "cam-reacquire-failed", err.message);
+    ui.notifications.error("Session Recorder: could not reconnect the camera — check device/permissions, then toggle your camera.");
+    return;
+  }
+  const old = state.camStream;
+  state.camStream = fresh;
+  old.getTracks().forEach((t) => t.stop());
+  await state.room.replaceLocalStream("cam", fresh);
+  const selfWin = camWindows.get("self");
+  selfWin?.setStream(fresh);
+  selfWin?._applyTracks();
+  watchCamTracks();
+  if (state.recordingOn) {
+    // The old recording segment closed itself when its track ended (and
+    // uploads its remainder); this continues as a new file.
+    await state.room.startRecording("cam", fresh);
+  }
+  ui.notifications.info("Session Recorder: camera reconnected.");
+}
+
 export async function joinRoom(invite) {
   if (state.room) return;
   const apiBase = setting("apiBase");
-  state.camStream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-  });
+  state.camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
 
   state.room = await sdk().Room.join({ apiBase, inviteToken: invite, displayName: game.user.name });
 
@@ -165,6 +213,7 @@ export async function joinRoom(invite) {
   if (live) await state.room.publish(state.camStream, "cam");
   else ui.notifications.warn("Session Recorder: live preview unavailable; recording still works.");
 
+  watchCamTracks();
   game.socket.emit(SOCKET, { action: "hello" });
   broadcastCamState();
   renderSettingsIfOpen();
