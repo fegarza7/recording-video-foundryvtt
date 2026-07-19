@@ -43,6 +43,22 @@ export function requireClient() {
   return state.recorderClient;
 }
 
+/**
+ * All of this module's sessions live in one platform project named after
+ * the module, so the host's other sessions (podcasts, other tools) never
+ * show up in Foundry — and Foundry games sit in their own group on the
+ * portal. Find-or-create once per load; retry allowed after a failure.
+ */
+export const PROJECT_NAME = "FoundryVTT Session Recorder";
+let projectPromise = null;
+export function moduleProject(client) {
+  projectPromise ??= client.ensureProject(PROJECT_NAME).catch((err) => {
+    projectPromise = null;
+    throw err;
+  });
+  return projectPromise;
+}
+
 export const errNotify = (err) => {
   console.error(`${MOD} |`, err);
   ui.notifications.error(`Session Recorder: ${err.message}`);

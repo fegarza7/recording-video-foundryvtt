@@ -2,7 +2,7 @@
  * Session lifecycle: joining the live room, roster-driven recording,
  * GM actions, teardown, and the module-socket messages.
  */
-import { MOD, SOCKET, state, setting, sdk, activeSession, requireClient, participantName, errNotify } from "./state.mjs";
+import { MOD, SOCKET, state, setting, sdk, activeSession, requireClient, moduleProject, participantName, errNotify } from "./state.mjs";
 import {
   camWindows,
   camStates,
@@ -46,7 +46,8 @@ export async function gmCreateSession() {
   if (!client) return;
   // Plain hyphen: users must be able to TYPE this name (delete confirmation).
   const name = `${game.world.title} - ${new Date().toLocaleDateString()}`;
-  const { session } = await client.createSession(name);
+  const project = await moduleProject(client);
+  const { session } = await client.createSession(name, project.id);
   await game.settings.set(
     MOD,
     "activeSession",

@@ -2,7 +2,7 @@
  * The two control-panel windows: Settings (sessions & connection) and
  * Videos (sessions & downloads browser).
  */
-import { MOD, SOCKET, sdk, state, activeSession, requireClient, errNotify } from "./state.mjs";
+import { MOD, SOCKET, sdk, state, activeSession, requireClient, moduleProject, errNotify } from "./state.mjs";
 import { gmCreateSession, gmCloseForEveryone, promptJoin } from "./session.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
@@ -99,7 +99,10 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     if (!client) return;
     this.loading = true;
     this.render({ force: true });
-    const { sessions } = await client.listSessions();
+    // Scoped to the module's own project — the host's non-Foundry sessions
+    // (and other modules' games) never appear in this window.
+    const project = await moduleProject(client);
+    const { sessions } = await client.listSessions(project.id);
     this.sessions = sessions;
     this.loading = false;
     this.render({ force: true });
