@@ -18,12 +18,16 @@
     {{#unless joined}}
       <div class="rec-row"><button type="button" data-recvtt="join"><i class="fas fa-video"></i> Join with webcam</button></div>
     {{/unless}}
+    {{#if joined}}
+      <div class="rec-row"><button type="button" data-recvtt="devices"><i class="fas fa-gear"></i> Change camera / microphone</button></div>
+      <div class="rec-row"><button type="button" data-recvtt="leave"><i class="fas fa-right-from-bracket"></i> Leave session (stop my streaming)</button></div>
+    {{/if}}
   {{/if}}
 
   {{#if participants.length}}
     <ul class="rec-participants">
       {{#each participants}}
-        <li><span>{{name}}</span><span>{{uploaded}}</span></li>
+        <li><span>{{name}}{{#if liveOnly}} <span class="rec-liveonly-tag">live only</span>{{/if}}</span><span>{{uploaded}}</span></li>
       {{/each}}
     </ul>
   {{/if}}

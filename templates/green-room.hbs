@@ -1,0 +1,57 @@
+<div class="recvtt-green">
+  <div class="recvtt-green-preview">
+    {{#if camOff}}
+      <div class="recvtt-green-off"><i class="fas fa-video-slash"></i> Camera off</div>
+    {{else if error}}
+      <div class="recvtt-green-off"><i class="fas fa-triangle-exclamation"></i> No camera</div>
+    {{else}}
+      <video autoplay playsinline muted></video>
+    {{/if}}
+  </div>
+
+  <div class="recvtt-green-devices">
+    <label>Camera
+      <select data-recvtt="cam" {{#if camOff}}disabled{{/if}}>
+        {{#each cams}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </label>
+    <label>Microphone
+      <select data-recvtt="mic">
+        {{#each mics}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </label>
+  </div>
+
+  <div class="recvtt-green-toggles">
+    <label><input type="checkbox" data-recvtt="camoff" {{#if camOff}}checked{{/if}} /> Join with camera off</label>
+    <label><input type="checkbox" data-recvtt="micmuted" {{#if micMuted}}checked{{/if}} /> Join muted</label>
+  </div>
+
+  <div class="recvtt-green-disclosure">
+    <p>
+      When the GM starts recording, your camera and microphone are captured in full quality
+      <b>on your device</b> and uploaded encrypted to the host's session storage. A red dot
+      is visible on every camera window whenever recording is on.
+    </p>
+    <p>
+      Only the session host can download the recordings. You can mute, turn your camera off,
+      or leave at any time — and when recording starts you can also choose to keep sharing
+      live <b>without being recorded at all</b>. Deleted sessions are permanently purged after
+      a 7-day grace period. <a href="{{securityUrl}}" target="_blank" rel="noopener">How security works</a>
+    </p>
+  </div>
+
+  <label class="recvtt-green-consent">
+    <input type="checkbox" data-recvtt="consent" {{#if consent}}checked{{/if}} />
+    <span>I agree to share my camera and microphone with this group and to be recorded while recording is on.</span>
+  </label>
+
+  {{#if error}}<p class="recvtt-green-error">{{error}}</p>{{/if}}
+
+  <div class="recvtt-green-actions">
+    <button type="button" data-recvtt="cancel">Cancel</button>
+    <button type="button" data-recvtt="join" class="recvtt-green-join" {{#unless canJoin}}disabled{{/unless}}>
+      <i class="fas fa-video"></i> Join recording session
+    </button>
+  </div>
+</div>

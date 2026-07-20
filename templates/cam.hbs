@@ -4,7 +4,8 @@
   {{else}}
     <img class="recvtt-portrait" src="{{portrait}}" alt="portrait" />
   {{/if}}
-  {{#if recording}}<span class="recvtt-recdot" title="Recording locally"></span>{{/if}}
+  {{#if recDot}}<span class="recvtt-recdot" title="Being recorded (locally, in full quality)"></span>{{/if}}
+  {{#if liveOnly}}<span class="recvtt-liveonly" title="Sharing live — NOT being recorded">live only</span>{{/if}}
   {{#if stale}}<div class="recvtt-stale">reconnecting…</div>{{/if}}
   {{#unless micOn}}
     <span class="recvtt-micoff" title="{{#if gmMicMuted}}Muted by the GM{{else}}Microphone muted{{/if}}">
@@ -21,6 +22,17 @@
               title="{{#if gmCamMuted}}Camera disabled by the GM{{else}}{{#if camOn}}Disable camera{{else}}Enable camera{{/if}}{{/if}}">
         <i class="fas {{#if camOn}}fa-video{{else}}fa-video-slash{{/if}}"></i>
       </button>
+      {{#if showStartRec}}
+        <button type="button" data-a="startrec" class="recvtt-startrec" title="Start recording me (you're live only)">
+          <i class="fas fa-circle"></i>
+        </button>
+      {{/if}}
+      <button type="button" data-a="devices" title="Change camera or microphone">
+        <i class="fas fa-gear"></i>
+      </button>
+      <button type="button" data-a="leavecall" title="Leave the session — stop streaming and recording entirely">
+        <i class="fas fa-right-from-bracket"></i>
+      </button>
     {{else}}
       <button type="button" data-a="localmute" title="{{#if localMuted}}Unmute for me{{else}}Mute for me only{{/if}}">
         <i class="fas {{#if localMuted}}fa-volume-mute{{else}}fa-volume-up{{/if}}"></i>
@@ -34,6 +46,11 @@
                 title="{{#if gmCamMuted}}Re-enable their camera{{else}}Disable their camera for everyone{{/if}}">
           <i class="fas fa-video-slash"></i>
         </button>
+        {{#if showAskRec}}
+          <button type="button" data-a="askrec" class="recvtt-gm recvtt-startrec" title="Ask them to start recording (they're live only)">
+            <i class="fas fa-circle"></i>
+          </button>
+        {{/if}}
       {{/if}}
     {{/if}}
   </div>

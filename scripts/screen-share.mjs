@@ -99,7 +99,9 @@ const screenShare = {
 
   async _publish(what) {
     await state.room.publish(this.stream, "screen");
-    if (state.recordingOn) await state.room.startRecording("screen", this.stream);
+    // Gate on capturing, not session status: a player who hasn't pressed
+    // "Start my recording" yet must not have their screen captured either.
+    if (state.capturing) await state.room.startRecording("screen", this.stream);
     areaBox.setStreamingUi(this.mode === "area");
     refreshToolbar();
     ui.notifications.info(`Session Recorder: ${what}.`);

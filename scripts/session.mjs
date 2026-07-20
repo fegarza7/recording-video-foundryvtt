@@ -11,10 +11,12 @@ import {
   attachAudio,
   refreshCamWindowFor,
   broadcastCamState,
+  resetCaptureStates,
 } from "./cam-windows.mjs";
 import { screenShare, areaBox } from "./screen-share.mjs";
 import { refreshToolbar } from "./toolbar.mjs";
 import { renderSettingsIfOpen } from "./dialogs.mjs";
+import { openGreenRoom } from "./green-room.mjs";
 
 export function onSocketMessage(msg) {
   switch (msg?.action) {
@@ -33,8 +35,13 @@ export function onSocketMessage(msg) {
       if (state.room) broadcastCamState();
       break;
     case "cam-state":
-      camStates.set(msg.name, { micOn: msg.micOn, camOn: msg.camOn });
+      camStates.set(msg.name, { micOn: msg.micOn, camOn: msg.camOn, capturing: msg.capturing ?? null });
       refreshCamWindowFor(msg.name);
+      break;
+    case "record-request":
+      // GM asks a live-only player to reconsider — always a question,
+      // never a force-start.
+      if (msg.name === game.user.name) showRecordRequest();
       break;
   }
 }
@@ -54,7 +61,8 @@ export async function gmCreateSession() {
     JSON.stringify({ sessionId: session.id, invite: session.invite_token }),
   );
   game.socket.emit(SOCKET, { action: "session-started", invite: session.invite_token });
-  await joinRoom(session.invite_token);
+  // The GM consents like everyone else — no silent camera grab.
+  openGreenRoom(session.invite_token, false);
   renderSettingsIfOpen();
   refreshToolbar();
 }
@@ -119,28 +127,26 @@ export async function gmCloseForEveryone() {
 
 // ---- joining & the live room --------------------------------------------------
 
+/** Every join path leads to the green room: preview, device choice, and
+ *  explicit consent — nothing is captured or shared before that. */
 export async function promptJoin(invite, isRejoin) {
   if (state.room) return;
-  const verb = isRejoin ? "Rejoin" : "Join";
-  const ok = await foundry.applications.api.DialogV2.confirm({
-    window: { title: "Session Recorder" },
-    content: `<p>The GM ${isRejoin ? "has a recording session running" : "started a recording session"}.</p>
-              <p>${verb} with your webcam? Your camera records <b>locally in full quality</b> and uploads in the background — the live call quality doesn't affect your recording.</p>`,
-    rejectClose: false,
-  });
-  if (!ok) return;
-  try {
-    await joinRoom(invite);
-  } catch (err) {
-    console.error(`${MOD} | join failed`, err);
-    ui.notifications.error(`Session Recorder: could not join — ${err.message}`);
-  }
+  openGreenRoom(invite, isRejoin);
 }
 
 const CAM_CONSTRAINTS = {
   video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
   audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
 };
+
+/** Base constraints + the devices chosen in the green room (if any). */
+function camConstraints() {
+  const prefs = state.avPrefs ?? {};
+  return {
+    video: { ...CAM_CONSTRAINTS.video, ...(prefs.camId ? { deviceId: { exact: prefs.camId } } : {}) },
+    audio: { ...CAM_CONSTRAINTS.audio, ...(prefs.micId ? { deviceId: { exact: prefs.micId } } : {}) },
+  };
+}
 
 /** Re-acquire and hot-swap when a camera/mic track dies (device off,
  *  permission blip, OS switch) — the failure that used to require F5. */
@@ -150,18 +156,10 @@ function watchCamTracks() {
   }
 }
 
-async function reacquireCamera() {
-  if (!state.room || !state.camStream) return;
-  ui.notifications.warn("Session Recorder: camera or mic lost — reconnecting…");
-  state.room.log("warn", "cam-reacquire");
-  let fresh;
-  try {
-    fresh = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
-  } catch (err) {
-    state.room.log("error", "cam-reacquire-failed", err.message);
-    ui.notifications.error("Session Recorder: could not reconnect the camera — check device/permissions, then toggle your camera.");
-    return;
-  }
+/** Swap our live+recorded stream for a fresh one (device change or device
+ *  death): sender-level replace, no renegotiation. If capturing, the old
+ *  segment closed with its track and a new file continues from here. */
+async function adoptFreshStream(fresh) {
   const old = state.camStream;
   state.camStream = fresh;
   old.getTracks().forEach((t) => t.stop());
@@ -170,22 +168,111 @@ async function reacquireCamera() {
   selfWin?.setStream(fresh);
   selfWin?._applyTracks();
   watchCamTracks();
-  if (state.recordingOn) {
-    // The old recording segment closed itself when its track ended (and
-    // uploads its remainder); this continues as a new file.
+  if (state.capturing) {
     await state.room.startRecording("cam", fresh);
   }
+}
+
+async function reacquireCamera() {
+  if (!state.room || !state.camStream) return;
+  ui.notifications.warn("Session Recorder: camera or mic lost — reconnecting…");
+  state.room.log("warn", "cam-reacquire");
+  let fresh;
+  try {
+    fresh = await navigator.mediaDevices.getUserMedia(camConstraints());
+  } catch (err) {
+    state.room.log("error", "cam-reacquire-failed", err.message);
+    ui.notifications.error("Session Recorder: could not reconnect the camera — check device/permissions, then toggle your camera.");
+    return;
+  }
+  await adoptFreshStream(fresh);
   ui.notifications.info("Session Recorder: camera reconnected.");
 }
 
-export async function joinRoom(invite) {
+/** Mid-session device switch, from the ⚙ button on your own cam window. */
+export async function openDeviceSwitch() {
+  if (!state.room || !state.camStream) return;
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const currentCam = state.camStream.getVideoTracks()[0]?.getSettings().deviceId ?? "";
+  const currentMic = state.camStream.getAudioTracks()[0]?.getSettings().deviceId ?? "";
+  const options = (kind, selected, fallback) =>
+    devices
+      .filter((d) => d.kind === kind)
+      .map((d, i) => `<option value="${d.deviceId}" ${d.deviceId === selected ? "selected" : ""}>${d.label || `${fallback} ${i + 1}`}</option>`)
+      .join("");
+  const picked = await foundry.applications.api.DialogV2.wait({
+    window: { title: "Change camera / microphone" },
+    content: `<div class="recvtt-devswitch">
+                <label>Camera <select name="recvtt-cam">${options("videoinput", currentCam, "Camera")}</select></label>
+                <label>Microphone <select name="recvtt-mic">${options("audioinput", currentMic, "Microphone")}</select></label>
+                <p class="recvtt-hint">If you're being recorded, the recording continues as a new file after the switch.</p>
+              </div>`,
+    buttons: [
+      {
+        action: "apply",
+        label: "Switch",
+        default: true,
+        callback: (_event, button) => ({
+          cam: button.form.elements["recvtt-cam"].value,
+          mic: button.form.elements["recvtt-mic"].value,
+        }),
+      },
+      { action: "cancel", label: "Cancel" },
+    ],
+    rejectClose: false,
+  });
+  if (!picked || typeof picked !== "object") return;
+  state.avPrefs = { camId: picked.cam, micId: picked.mic };
+  await game.settings.set(MOD, "camDevice", picked.cam);
+  await game.settings.set(MOD, "micDevice", picked.mic);
+  let fresh;
+  try {
+    fresh = await navigator.mediaDevices.getUserMedia(camConstraints());
+  } catch (err) {
+    ui.notifications.error(`Session Recorder: could not switch devices — ${err.message}`);
+    return;
+  }
+  await adoptFreshStream(fresh);
+  ui.notifications.info("Session Recorder: devices switched.");
+}
+
+/** Stop streaming entirely and leave the live session (rejoin any time
+ *  from Sessions & connection) — stronger than mute/hide, which keep you
+ *  in the call. */
+export async function leaveSession() {
+  if (!state.room) return;
+  const ok = await foundry.applications.api.DialogV2.confirm({
+    window: { title: "Leave the session?" },
+    content: `<p>Your camera and microphone stop streaming and recording entirely.
+              Anything already uploaded stays with the session, and you can rejoin
+              any time from <b>Sessions &amp; connection</b>.</p>`,
+    rejectClose: false,
+  });
+  if (!ok) return;
+  teardown("You left the session — nothing more is streamed or recorded. Rejoin any time from Sessions & connection.");
+  renderSettingsIfOpen();
+}
+
+export async function joinRoom(invite, opts = {}) {
   if (state.room) return;
   const apiBase = setting("apiBase");
-  state.camStream = await navigator.mediaDevices.getUserMedia(CAM_CONSTRAINTS);
+  state.avPrefs = { camId: opts.camId ?? "", micId: opts.micId ?? "" };
+  state.camStream = await navigator.mediaDevices.getUserMedia(camConstraints());
 
   state.room = await sdk().Room.join({ apiBase, inviteToken: invite, displayName: game.user.name });
 
   openCamWindow("self", `${game.user.name} (you)`, state.camStream);
+  // Honor the green-room toggles before anything is published or recorded:
+  // a disabled track records black/silence, same as the in-call toggles.
+  if (opts.camOff || opts.micMuted) {
+    const selfWin = camWindows.get("self");
+    if (selfWin) {
+      if (opts.camOff) selfWin.camOn = false;
+      if (opts.micMuted) selfWin.micOn = false;
+      selfWin._applyTracks();
+      selfWin.render();
+    }
+  }
 
   state.room.on("roster", onRoster);
   state.room.on("stream", (pid, kind, trackName, stream) => {
@@ -193,6 +280,8 @@ export async function joinRoom(invite) {
     if (trackName.endsWith("-video")) {
       openCamWindow(pid, participantName(pid), stream);
       refreshCamWindowFor(participantName(pid));
+      // A window opened mid-recording still shows the red dot.
+      camWindows.get(pid)?.setRecording(state.recordingOn);
     } else {
       attachAudio(pid, stream);
     }
@@ -238,32 +327,137 @@ function onRoster(roster) {
   if (status === "recording" && !state.recordingOn) {
     state.recordPending = false;
     state.recordingOn = true;
-    state.room.startRecording("cam", state.camStream).catch((err) => {
-      state.recordingOn = false;
-      ui.notifications.error(`Session Recorder: recording failed — ${err.message}`);
-    });
-    if (screenShare.stream) {
-      state.room.startRecording("screen", screenShare.stream).catch(errNotify);
-    }
-    camWindows.get("self")?.setRecording(true);
-    ui.notifications.info("Session Recorder: recording started.");
+    // Fresh cycle: nobody's capture choice is known until they make it.
+    resetCaptureStates();
+    for (const win of camWindows.values()) win.setRecording(true);
     refreshToolbar();
+    if (game.user.isGM) {
+      // The GM pressed the button — that IS their confirmation.
+      startLocalCapture();
+      ui.notifications.info("Session Recorder: recording started.");
+    } else {
+      // Players capture NOTHING until they confirm in the notice.
+      showRecordingNotice();
+    }
   }
   if (status !== "recording" && state.recordingOn && !state.draining) {
     state.recordPending = false;
     state.recordingOn = false;
-    state.draining = true;
-    state.room.stopRecording();
-    camWindows.get("self")?.setRecording(false);
-    ui.notifications.info("Session Recorder: recording stopped — uploading the remainder…");
-    state.room.waitForUploads().then(() => {
-      state.draining = false;
-      ui.notifications.info("Session Recorder: all uploads complete. Your recording is safe.");
-      renderSettingsIfOpen();
-    });
+    state.recordNoticeShown = false;
+    for (const win of camWindows.values()) win.setRecording(false);
+    camWindows.get("self")?.setCapturing(null);
+    if (state.capturing) {
+      state.capturing = false;
+      state.draining = true;
+      state.room.stopRecording();
+      ui.notifications.info("Session Recorder: recording stopped — uploading the remainder…");
+      state.room.waitForUploads().then(() => {
+        state.draining = false;
+        ui.notifications.info("Session Recorder: all uploads complete. Your recording is safe.");
+        renderSettingsIfOpen();
+      });
+    }
     refreshToolbar();
   }
   renderSettingsIfOpen();
+}
+
+/** Begin capturing on THIS client. GM: immediately on record press.
+ *  Players: only from the recording-notice confirmation below. */
+function startLocalCapture() {
+  if (!state.room || !state.recordingOn || state.capturing) return;
+  state.capturing = true;
+  state.room.startRecording("cam", state.camStream).catch((err) => {
+    state.capturing = false;
+    camWindows.get("self")?.setCapturing(false);
+    broadcastCamState();
+    ui.notifications.error(`Session Recorder: recording failed — ${err.message}`);
+  });
+  if (screenShare.stream) {
+    state.room.startRecording("screen", screenShare.stream).catch(errNotify);
+  }
+  // Everyone's windows show the truth: this participant IS recorded.
+  camWindows.get("self")?.setCapturing(true);
+  broadcastCamState();
+}
+
+/** A live-only player changed their mind (own webcam button) — start
+ *  capturing mid-cycle; the recording continues as a new file from now. */
+export function selfStartCapture() {
+  if (!state.room || !state.recordingOn || state.capturing) return;
+  startLocalCapture();
+  ui.notifications.info("Session Recorder: your recording started.");
+}
+
+let recordRequestOpen = false;
+/** The GM's re-ask, delivered to a live-only player. Same rules as the
+ *  original dialog: the player decides. */
+function showRecordRequest() {
+  if (game.user.isGM || recordRequestOpen) return;
+  if (!state.room || !state.recordingOn || state.capturing) return;
+  recordRequestOpen = true;
+  foundry.applications.api.DialogV2.wait({
+    window: { title: "The GM asks to record you" },
+    content: `<p>You're currently sharing <b>live only</b>. The GM asked whether you'd like to
+              be recorded after all — starting now, nothing before this moment was captured.</p>`,
+    buttons: [
+      { action: "start", label: "Record me", default: true },
+      { action: "stay", label: "Stay live only" },
+    ],
+    rejectClose: false,
+  })
+    .then((action) => {
+      recordRequestOpen = false;
+      if (action === "start") selfStartCapture();
+    })
+    .catch(() => {
+      recordRequestOpen = false;
+    });
+}
+
+/** The gate: a player's camera and mic are NOT captured until they press
+ *  Start here — the GM's record press alone never records anyone else.
+ *  Dismissing the dialog re-opens it (this is a binary moment: record or
+ *  leave); once per recording cycle. */
+function showRecordingNotice() {
+  if (game.user.isGM || state.recordNoticeShown) return;
+  state.recordNoticeShown = true;
+  const ask = () =>
+    foundry.applications.api.DialogV2.wait({
+      window: { title: "The GM started recording" },
+      content: `<p><b>Nothing is being recorded on your machine yet.</b> Choose how to take part
+                in this recording:</p>
+                <p><b>Record me</b> — your camera and microphone are captured in full quality
+                (a red dot marks recorded participants).<br />
+                <b>Live only</b> — you stay in the call and everyone sees and hears you, but
+                nothing of yours is captured; your voice and face appear in no files.<br />
+                <b>Leave</b> — disconnect from the session entirely.</p>
+                <p>You can mute or turn your camera off at any time.</p>`,
+      buttons: [
+        { action: "start", label: "Record me", default: true },
+        { action: "liveonly", label: "Live only — don't record me" },
+        { action: "leave", label: "Leave session" },
+      ],
+      rejectClose: false,
+    })
+      .then((action) => {
+        // The moment may have passed (GM stopped) — never start stale.
+        if (!state.room || !state.recordingOn) return;
+        if (action === "start") {
+          startLocalCapture();
+          ui.notifications.info("Session Recorder: your recording started.");
+        } else if (action === "liveonly") {
+          camWindows.get("self")?.setCapturing(false);
+          broadcastCamState();
+          ui.notifications.info("Session Recorder: sharing live only — nothing is recorded on your machine this cycle.");
+        } else if (action === "leave") {
+          teardown("You left the session — nothing was recorded on your machine.");
+        } else {
+          ask(); // dismissed without choosing: the question stands
+        }
+      })
+      .catch(() => {});
+  ask();
 }
 
 export function teardown(message) {
@@ -281,6 +475,8 @@ export function teardown(message) {
   safely(() => state.room?.leave());
   state.room = null;
   state.recordingOn = false;
+  state.recordNoticeShown = false;
+  state.capturing = false;
   safely(() => state.camStream?.getTracks().forEach((t) => t.stop()));
   state.camStream = null;
   safely(() => screenShare.stop());

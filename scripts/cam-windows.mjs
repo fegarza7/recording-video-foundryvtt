@@ -3,7 +3,7 @@
  * rides the Foundry socket, and per-client window layout persistence.
  */
 import { MOD, SOCKET, MYSTERY_MAN, setting, state, participantName, errNotify } from "./state.mjs";
-import { gmToggleParticipant } from "./session.mjs";
+import { gmToggleParticipant, selfStartCapture, openDeviceSwitch, leaveSession } from "./session.mjs";
 
 const camWindows = new Map(); // participantId -> CamWindow
 /** Foundry-socket-shared mic/cam state, keyed by display name. */
@@ -32,6 +32,8 @@ function broadcastCamState() {
     name: game.user.name,
     micOn: self?.micOn ?? true,
     camOn: self?.camOn ?? true,
+    // null = hasn't chosen yet this cycle; true/false = recording / live only.
+    capturing: self?.capturing ?? null,
   });
 }
 
@@ -39,9 +41,16 @@ function refreshCamWindowFor(name) {
   for (const [pid, win] of camWindows) {
     if (pid !== "self" && participantName(pid) === name) {
       const st = camStates.get(name);
-      win.setRemoteState(st?.micOn ?? true, st?.camOn ?? true);
+      win.setRemoteState(st?.micOn ?? true, st?.camOn ?? true, st?.capturing ?? null);
     }
   }
+}
+
+/** New recording cycle: everyone's capture choice is unknown again until
+ *  their cam-state broadcast arrives. */
+function resetCaptureStates() {
+  for (const st of camStates.values()) st.capturing = null;
+  for (const win of camWindows.values()) win.capturing = null;
 }
 
 // ---- portraits ---------------------------------------------------------------
@@ -132,7 +141,8 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     });
     this.pid = pid;
     this.stream = null;
-    this.recording = false;
+    this.recording = false; // session status: is a recording cycle running?
+    this.capturing = null; // THIS participant: null unknown / true recorded / false live-only
     this.stale = false;
     this.micOn = true; // own choice (self) / their choice via module socket (remote)
     this.camOn = true;
@@ -161,14 +171,20 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     this.recording = on;
     this.render();
   }
+  /** This participant's actual capture state (their choice at record start). */
+  setCapturing(capturing) {
+    this.capturing = capturing;
+    this.render();
+  }
   setStale(stale) {
     this.stale = stale;
     this.render();
   }
-  /** Remote peers' own mic/cam choice, learned over the Foundry socket. */
-  setRemoteState(micOn, camOn) {
+  /** Remote peers' own mic/cam/capture choice, learned over the Foundry socket. */
+  setRemoteState(micOn, camOn, capturing) {
     this.micOn = micOn;
     this.camOn = camOn;
+    if (capturing !== undefined) this.capturing = capturing;
     this.render();
   }
   /** GM-enforced flags from the roster. On self, also enforce on tracks. */
@@ -183,7 +199,14 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     const name = this.isSelf ? game.user.name : participantName(this.pid);
     const camOff = !this.camOn || this.platformCamMuted;
     return {
-      recording: this.recording,
+      // Indicators tell the truth per participant: red dot only when THIS
+      // person is actually captured; "live only" when they declined.
+      recDot: this.recording && this.capturing === true,
+      liveOnly: this.recording && this.capturing === false,
+      // Live-only escape hatches: the player can opt back in from their
+      // own window; the GM can ask (never force) from theirs.
+      showStartRec: this.isSelf && this.recording && this.capturing === false,
+      showAskRec: game.user.isGM && !this.isSelf && this.recording && this.capturing === false,
       stale: this.stale && !camOff,
       isSelf: this.isSelf,
       isGM: game.user.isGM && !this.isSelf,
@@ -199,6 +222,13 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     const el = this.element;
     el.querySelector("[data-a=mic]")?.addEventListener("click", () => this._toggleMic());
     el.querySelector("[data-a=cam]")?.addEventListener("click", () => this._toggleCam());
+    el.querySelector("[data-a=startrec]")?.addEventListener("click", () => selfStartCapture());
+    el.querySelector("[data-a=devices]")?.addEventListener("click", () => openDeviceSwitch().catch(errNotify));
+    el.querySelector("[data-a=leavecall]")?.addEventListener("click", () => leaveSession().catch(errNotify));
+    el.querySelector("[data-a=askrec]")?.addEventListener("click", () => {
+      game.socket.emit(SOCKET, { action: "record-request", name: participantName(this.pid) });
+      ui.notifications.info(`Session Recorder: asked ${participantName(this.pid)} to start recording.`);
+    });
     el.querySelector("[data-a=localmute]")?.addEventListener("click", () => this._toggleLocalMute());
     el.querySelector("[data-a=gmmic]")?.addEventListener("click", () => gmToggleParticipant(this.pid, "mic").catch(errNotify));
     el.querySelector("[data-a=gmcam]")?.addEventListener("click", () => gmToggleParticipant(this.pid, "cam").catch(errNotify));
@@ -258,5 +288,6 @@ export {
   attachAudio,
   refreshCamWindowFor,
   broadcastCamState,
+  resetCaptureStates,
   portraitFor,
 };

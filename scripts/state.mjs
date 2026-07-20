@@ -5,6 +5,8 @@
 export const MOD = "recorder-vtt";
 export const SOCKET = `module.${MOD}`;
 export const MYSTERY_MAN = "icons/svg/mystery-man.svg";
+/** The service portal — the green room links to its security page. */
+export const PORTAL_URL = "https://recorder-portal-staging.pages.dev";
 
 export const sdk = () => window.RecorderSDK;
 export const setting = (key) => game.settings.get(MOD, key);
@@ -18,6 +20,14 @@ export const state = {
   draining: false,
   /** Set while a start/stop request is in flight; cleared by the next roster status change. */
   recordPending: false,
+  /** Devices chosen in the green room; camera re-acquire prefers them. */
+  avPrefs: null,
+  /** The "recording started" notice fires once per recording cycle. */
+  recordNoticeShown: false,
+  /** True only after THIS client actually began capturing. Players gate
+   *  this behind the recording-started confirmation; the session being
+   *  in 'recording' status alone never captures anything locally. */
+  capturing: false,
 };
 
 export const activeSession = () => {

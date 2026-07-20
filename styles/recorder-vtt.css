@@ -272,3 +272,146 @@ li:has(> [data-tool="recvtt-anchor"]) {
   border-radius: 50%;
   cursor: nwse-resize;
 }
+
+/* ---- green room (consent + device check before every join) ------------------ */
+
+.recvtt-green {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.recvtt-green-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.recvtt-green-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror your own preview, like every call app */
+}
+.recvtt-green-off {
+  color: #aaa;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.recvtt-green-devices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.recvtt-green-devices label {
+  display: grid;
+  gap: 3px;
+  font-size: 12px;
+}
+.recvtt-green-devices select {
+  width: 100%;
+}
+.recvtt-green-toggles {
+  display: flex;
+  gap: 18px;
+}
+.recvtt-green-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.recvtt-green-disclosure {
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.85;
+  border: 1px solid var(--color-border-dark-4, #555);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.recvtt-green-disclosure p {
+  margin: 0 0 6px;
+}
+.recvtt-green-disclosure p:last-child {
+  margin: 0;
+}
+.recvtt-green-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.recvtt-green-consent input {
+  margin-top: 3px;
+  flex: none;
+}
+.recvtt-green-error {
+  color: #ff6b61;
+  font-size: 12.5px;
+  margin: 0;
+}
+.recvtt-green-actions {
+  display: flex;
+  gap: 8px;
+}
+.recvtt-green-actions button {
+  flex: 1;
+}
+.recvtt-green-join:not(:disabled) {
+  background: var(--color-warm-2, #c53131);
+  color: #fff;
+}
+
+/* "live only" — in the call but not being recorded */
+.recvtt-cam .recvtt-liveonly {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 3;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #cfd3e6;
+  background: rgba(20, 22, 34, 0.75);
+  border: 1px solid rgba(207, 211, 230, 0.35);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.rec-liveonly-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0 6px;
+  margin-left: 4px;
+}
+
+/* live-only escape hatch: red circle = start / ask to start recording */
+.recvtt-cam .recvtt-startrec i {
+  color: #e24b4a;
+}
+
+/* mid-session device switch dialog */
+.recvtt-devswitch {
+  display: grid;
+  gap: 8px;
+}
+.recvtt-devswitch label {
+  display: grid;
+  gap: 3px;
+  font-size: 12.5px;
+}
+.recvtt-devswitch .recvtt-hint {
+  font-size: 11.5px;
+  opacity: 0.75;
+  margin: 2px 0 0;
+}

@@ -3,7 +3,8 @@
  * Videos (sessions & downloads browser).
  */
 import { MOD, SOCKET, sdk, state, activeSession, requireClient, moduleProject, errNotify } from "./state.mjs";
-import { gmCreateSession, gmCloseForEveryone, promptJoin } from "./session.mjs";
+import { gmCreateSession, gmCloseForEveryone, promptJoin, openDeviceSwitch, leaveSession } from "./session.mjs";
+import { camStates, camWindows } from "./cam-windows.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -53,7 +54,9 @@ class SettingsWindow extends HandlebarsApplicationMixin(ApplicationV2) {
         const bytes = (roster?.tracks ?? [])
           .filter((t) => t.participant_id === p.id)
           .reduce((n, t) => n + (t.bytes_uploaded ?? 0), 0);
-        return { name: p.display_name, uploaded: fmt(bytes) };
+        const mine = p.display_name === game.user.name;
+        const capturing = mine ? (camWindows.get("self")?.capturing ?? null) : (camStates.get(p.display_name)?.capturing ?? null);
+        return { name: p.display_name, uploaded: fmt(bytes), liveOnly: state.recordingOn && capturing === false };
       }),
     };
   }
@@ -65,6 +68,8 @@ class SettingsWindow extends HandlebarsApplicationMixin(ApplicationV2) {
       const active = activeSession();
       if (active) promptJoin(active.invite, true);
     });
+    el.querySelector("[data-recvtt=devices]")?.addEventListener("click", () => openDeviceSwitch().catch(errNotify));
+    el.querySelector("[data-recvtt=leave]")?.addEventListener("click", () => leaveSession().catch(errNotify));
   }
 }
 

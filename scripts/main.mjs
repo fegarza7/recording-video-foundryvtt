@@ -35,6 +35,9 @@ Hooks.once("init", () => {
     type: Object,
     default: {},
   });
+  // Devices chosen in the green room, remembered per player per browser.
+  game.settings.register(MOD, "camDevice", { scope: "client", config: false, type: String, default: "" });
+  game.settings.register(MOD, "micDevice", { scope: "client", config: false, type: String, default: "" });
 
   registerToolbar();
 });
