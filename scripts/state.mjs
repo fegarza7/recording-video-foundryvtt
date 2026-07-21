@@ -22,6 +22,8 @@ export const state = {
   recordPending: false,
   /** Devices chosen in the green room; camera re-acquire prefers them. */
   avPrefs: null,
+  /** Last presence Set from the room (participant ids currently online). */
+  lastPresence: null,
   /** The "recording started" notice fires once per recording cycle. */
   recordNoticeShown: false,
   /** True only after THIS client actually began capturing. Players gate

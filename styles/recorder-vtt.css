@@ -415,3 +415,20 @@ li:has(> [data-tool="recvtt-anchor"]) {
   opacity: 0.75;
   margin: 2px 0 0;
 }
+
+/* ---- game view (board-only recording) --------------------------------------- */
+
+.recvtt-gameview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px;
+}
+.recvtt-gameview .recvtt-gv-pick {
+  display: grid;
+  gap: 3px;
+  font-size: 12.5px;
+}
+.recvtt-gameview .recvtt-gv-active {
+  color: #6ee7b7;
+}

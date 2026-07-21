@@ -1,0 +1,40 @@
+<div class="recvtt-gameview">
+  {{#unless joined}}
+    <p class="rec-status">Join the session first (Sessions &amp; connection).</p>
+  {{else}}
+    <p class="rec-status">
+      Record the board itself — the scene, tokens, and movement, with no chat, sheets,
+      or UI — as its own file, from one player's point of view.
+      {{#unless recordingOn}}It captures whenever the session records.{{/unless}}
+    </p>
+
+    {{#if sharer}}
+      <p class="rec-status recvtt-gv-active"><i class="fas fa-chess-board"></i> <b>{{sharer}}</b> is sharing their game view.</p>
+      <div class="rec-row"><button type="button" data-recvtt="gv-stop"><i class="fas fa-stop"></i> Stop game view</button></div>
+    {{/if}}
+
+    {{#if pending}}
+      <p class="rec-status">Waiting for <b>{{pending}}</b> to accept…</p>
+      <div class="rec-row"><button type="button" data-recvtt="gv-cancel">Cancel request</button></div>
+    {{else}}
+      {{#if hasPlayers}}
+        <label class="recvtt-gv-pick">{{#if sharer}}Switch to{{else}}Whose view{{/if}}
+          <select data-recvtt="gv-player">
+            {{#each players}}
+              <option value="{{name}}">{{name}}{{#if self}} (you — your GM view reveals hidden things){{/if}}</option>
+            {{/each}}
+          </select>
+        </label>
+        <div class="rec-row">
+          {{#if sharer}}
+            <button type="button" data-recvtt="gv-switch"><i class="fas fa-random"></i> Switch game view</button>
+          {{else}}
+            <button type="button" data-recvtt="gv-request"><i class="fas fa-chess-board"></i> Request game view</button>
+          {{/if}}
+        </div>
+      {{else}}
+        <p class="rec-status">Nobody is connected to the session yet.</p>
+      {{/if}}
+    {{/if}}
+  {{/unless}}
+</div>

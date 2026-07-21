@@ -17,6 +17,14 @@ import { screenShare, areaBox } from "./screen-share.mjs";
 import { refreshToolbar } from "./toolbar.mjs";
 import { renderSettingsIfOpen } from "./dialogs.mjs";
 import { openGreenRoom } from "./green-room.mjs";
+import {
+  handleGameViewSocket,
+  gameViewHello,
+  gameViewPresenceCheck,
+  gameViewOnRecordStart,
+  isSharingGameView,
+  stopGameShare,
+} from "./game-view.mjs";
 
 export function onSocketMessage(msg) {
   switch (msg?.action) {
@@ -32,7 +40,10 @@ export function onSocketMessage(msg) {
       break;
     case "hello":
       // A client joined and wants everyone's current mic/cam state.
-      if (state.room) broadcastCamState();
+      if (state.room) {
+        broadcastCamState();
+        gameViewHello();
+      }
       break;
     case "cam-state":
       camStates.set(msg.name, { micOn: msg.micOn, camOn: msg.camOn, capturing: msg.capturing ?? null });
@@ -43,6 +54,8 @@ export function onSocketMessage(msg) {
       // never a force-start.
       if (msg.name === game.user.name) showRecordRequest();
       break;
+    default:
+      handleGameViewSocket(msg); // gv-* actions live in game-view.mjs
   }
 }
 
@@ -290,9 +303,14 @@ export async function joinRoom(invite, opts = {}) {
     if (kind === "cam" && trackName.endsWith("-video")) camWindows.get(pid)?.setStale(!live);
   });
   state.room.on("presence", (online) => {
+    state.lastPresence = online;
     for (const [pid] of camWindows) {
       if (pid !== "self" && !online.has(pid)) closeCamWindow(pid);
     }
+    const onlineNames = new Set(
+      (state.room?.roster?.participants ?? []).filter((p) => online.has(p.id)).map((p) => p.display_name),
+    );
+    gameViewPresenceCheck(onlineNames);
   });
   state.room.on("control", (action) => {
     if (action === "close")
@@ -339,6 +357,8 @@ function onRoster(roster) {
       // Players capture NOTHING until they confirm in the notice.
       showRecordingNotice();
     }
+    // An armed game view was consented separately — it records with the cycle.
+    gameViewOnRecordStart();
   }
   if (status !== "recording" && state.recordingOn && !state.draining) {
     state.recordPending = false;
@@ -346,7 +366,8 @@ function onRoster(roster) {
     state.recordNoticeShown = false;
     for (const win of camWindows.values()) win.setRecording(false);
     camWindows.get("self")?.setCapturing(null);
-    if (state.capturing) {
+    // A live-only player can still have a game-view recording running.
+    if (state.capturing || isSharingGameView()) {
       state.capturing = false;
       state.draining = true;
       state.room.stopRecording();
@@ -472,6 +493,7 @@ export function teardown(message) {
       console.error("recorder-vtt | teardown step failed", err);
     }
   };
+  safely(() => stopGameShare(null));
   safely(() => state.room?.leave());
   state.room = null;
   state.recordingOn = false;

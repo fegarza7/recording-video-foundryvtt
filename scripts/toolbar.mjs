@@ -7,6 +7,7 @@ import { gmSetRecording } from "./session.mjs";
 import { screenShare, areaBox } from "./screen-share.mjs";
 import { showAllCams } from "./cam-windows.mjs";
 import { openSettings, openVideos } from "./dialogs.mjs";
+import { openGameView, isSharingGameView } from "./game-view.mjs";
 
 function registerToolbar() {
   Hooks.on("getSceneControlButtons", (controls) => {
@@ -33,6 +34,17 @@ function registerToolbar() {
       button: true,
       order: 1.5,
       onChange: () => showAllCams(),
+    });
+
+    // Everyone sees Game view: the GM manages it; a sharing player uses
+    // it to stop; everyone else gets a what-is-this notification.
+    tools.push({
+      name: "gameview",
+      title: "Game view recording",
+      icon: "fas fa-chess-board",
+      button: true,
+      order: 2.7,
+      onChange: () => openGameView(),
     });
 
     if (isGM) {
@@ -134,6 +146,14 @@ const refreshToolbar = () => {
     iconOff: "fas fa-desktop",
     tipOn: "Stop sharing the tab/window",
     tipOff: "Stream a tab or window",
+  });
+  patchTool("gameview", {
+    on: isSharingGameView(),
+    className: "recvtt-sharing",
+    iconOn: "fas fa-chess-board",
+    iconOff: "fas fa-chess-board",
+    tipOn: "Sharing your game view — click to stop",
+    tipOff: "Game view recording",
   });
 };
 
