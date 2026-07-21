@@ -3,7 +3,9 @@
  * Videos (sessions & downloads browser).
  */
 import { MOD, SOCKET, sdk, state, activeSession, requireClient, moduleProject, errNotify } from "./state.mjs";
-import { gmCreateSession, gmCloseForEveryone, promptJoin, openDeviceSwitch, leaveSession } from "./session.mjs";
+import { gmCreateSession, gmCloseForEveryone } from "./gm-actions.mjs";
+import { promptJoin, leaveSession } from "./session.mjs";
+import { openDeviceSwitch } from "./av-devices.mjs";
 import { camStates, camWindows } from "./cam-windows.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;

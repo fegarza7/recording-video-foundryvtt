@@ -3,7 +3,11 @@
  * rides the Foundry socket, and per-client window layout persistence.
  */
 import { MOD, SOCKET, MYSTERY_MAN, setting, state, participantName, errNotify } from "./state.mjs";
-import { gmToggleParticipant, selfStartCapture, openDeviceSwitch, leaveSession } from "./session.mjs";
+import { gmToggleParticipant } from "./gm-actions.mjs";
+import { selfStartCapture } from "./record-consent.mjs";
+import { openDeviceSwitch } from "./av-devices.mjs";
+import { leaveSession } from "./session.mjs";
+import { detachAudio, remoteAudioEl } from "./remote-audio.mjs";
 
 const camWindows = new Map(); // participantId -> CamWindow
 /** Foundry-socket-shared mic/cam state, keyed by display name. */
@@ -60,21 +64,6 @@ function portraitFor(name) {
   return user?.character?.img || user?.avatar || MYSTERY_MAN;
 }
 
-// ---- audio -------------------------------------------------------------------
-
-const audioEls = new Map();
-function attachAudio(pid, stream) {
-  let el = audioEls.get(pid);
-  if (!el) {
-    el = document.createElement("audio");
-    el.autoplay = true;
-    document.body.appendChild(el);
-    audioEls.set(pid, el);
-  }
-  el.srcObject = stream;
-  el.muted = camWindows.get(pid)?.localMuted ?? false;
-}
-
 function openCamWindow(pid, title, stream) {
   let win = camWindows.get(pid);
   if (!win) {
@@ -95,8 +84,7 @@ function closeCamWindow(pid) {
     console.error("recorder-vtt | cam window close failed", err);
   }
   camWindows.delete(pid);
-  audioEls.get(pid)?.remove();
-  audioEls.delete(pid);
+  detachAudio(pid);
 }
 
 /** Reopen every known camera window (closing one is only visual —
@@ -265,7 +253,7 @@ class CamWindow extends HandlebarsApplicationMixin(ApplicationV2) {
   /** My-ears-only: mutes this participant's audio element locally. */
   _toggleLocalMute() {
     this.localMuted = !this.localMuted;
-    const audio = audioEls.get(this.pid);
+    const audio = remoteAudioEl(this.pid);
     if (audio) audio.muted = this.localMuted;
     this.render();
   }
@@ -285,7 +273,6 @@ export {
   openCamWindow,
   closeCamWindow,
   showAllCams,
-  attachAudio,
   refreshCamWindowFor,
   broadcastCamState,
   resetCaptureStates,

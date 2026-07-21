@@ -1,0 +1,24 @@
+/* toolbar.css — scene-controls toolbar: anchor-tool hiding + record/share tool states */
+/* ---- toolbar: hide the structural anchor tool (groups require an
+       activeTool; a real button there would auto-fire on submenu open) ---- */
+#scene-controls-tools button[data-tool="recvtt-anchor"],
+#scene-controls-tools [data-tool="recvtt-anchor"],
+li.scene-control-tool[data-tool="recvtt-anchor"],
+.scene-control-tool[data-tool="recvtt-anchor"],
+/* ...and the list-item wrapper around it, which otherwise keeps its
+   padded slot and misaligns the submenu */
+#scene-controls-tools li:has([data-tool="recvtt-anchor"]),
+li:has(> [data-tool="recvtt-anchor"]) {
+  display: none !important;
+}
+
+/* Record tool: red while recording; window tool: teal while sharing
+   (classes applied by the DOM patcher). */
+[data-tool="record"].recvtt-recording,
+[data-tool="record"].recvtt-recording i {
+  color: #e24b4a !important;
+}
+[data-tool="window"].recvtt-sharing,
+[data-tool="window"].recvtt-sharing i {
+  color: #5dcaa5 !important;
+}

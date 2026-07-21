@@ -3,7 +3,7 @@
  * Settings, Stream area/window, Record toggle, Videos.
  */
 import { MOD, state, activeSession, errNotify } from "./state.mjs";
-import { gmSetRecording } from "./session.mjs";
+import { gmSetRecording } from "./gm-actions.mjs";
 import { screenShare, areaBox } from "./screen-share.mjs";
 import { showAllCams } from "./cam-windows.mjs";
 import { openSettings, openVideos } from "./dialogs.mjs";

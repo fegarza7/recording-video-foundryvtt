@@ -1,0 +1,59 @@
+/* screen-share.css — draggable/resizable streamable area overlay box */
+/* ---- the streamable area box ---- */
+#recvtt-area {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none; /* the frame is see-through & click-through... */
+}
+#recvtt-area .recvtt-area-toolbar,
+#recvtt-area .recvtt-area-handle {
+  pointer-events: all; /* ...only its chrome is interactive */
+}
+#recvtt-area .recvtt-area-toolbar {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 28px;
+  padding: 0 4px;
+  background: rgba(20, 20, 19, 0.9);
+  border-radius: 6px 6px 0 0;
+  width: fit-content;
+}
+#recvtt-area .recvtt-area-toolbar button {
+  height: 22px;
+  line-height: 1;
+  font-size: 11px;
+  width: auto;
+  padding: 0 8px;
+  background: #242422;
+  color: #e8e6df;
+  border: 1px solid #44433f;
+  border-radius: 4px;
+}
+#recvtt-area .recvtt-area-grip {
+  cursor: move;
+  color: #e8e6df;
+  padding: 0 6px;
+}
+#recvtt-area .recvtt-area-frame {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 2px dashed #e24b4a;
+  border-radius: 2px;
+}
+#recvtt-area.recvtt-streaming .recvtt-area-frame {
+  border-style: solid;
+}
+#recvtt-area .recvtt-area-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  background: #e24b4a;
+  border-radius: 50%;
+  cursor: nwse-resize;
+}
