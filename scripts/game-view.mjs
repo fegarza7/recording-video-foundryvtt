@@ -18,6 +18,7 @@ const gameView = {
   pendingName: null, // GM only: outstanding request
   _pendingTimer: null,
   _requestOpen: false,
+  _cleanup: null, // tears down the 1080p scaler pipeline, if one was needed
 };
 
 /** Foundry's board canvas (PIXI) — DOM UI lives on top and is never captured. */
@@ -81,6 +82,42 @@ export function gameViewPresenceCheck(onlineNames) {
 
 // ---- sharer lifecycle --------------------------------------------------------
 
+/**
+ * Cap the recording at Full HD (1080p). The board's backbuffer is the
+ * window size × display scaling — often well above 1080p — and panning
+ * changes every pixel every frame, so oversized captures starve the
+ * encoder's bitrate and macroblock during movement. Scaling goes through
+ * a <video> element because drawImage straight from Foundry's WebGL
+ * canvas is unreliable (PIXI doesn't preserve the drawing buffer).
+ */
+const MAX_W = 1920;
+const MAX_H = 1080;
+
+function scaledBoardStream(el) {
+  const native = el.captureStream(30);
+  const video = document.createElement("video");
+  video.srcObject = native;
+  video.muted = true;
+  video.play();
+  const scale = Math.min(MAX_W / el.width, MAX_H / el.height);
+  const out = document.createElement("canvas");
+  out.width = Math.round(el.width * scale);
+  out.height = Math.round(el.height * scale);
+  const ctx = out.getContext("2d");
+  const timer = setInterval(() => {
+    if (video.videoWidth) ctx.drawImage(video, 0, 0, out.width, out.height);
+  }, 1000 / 30);
+  return {
+    stream: out.captureStream(30),
+    cleanup: () => {
+      clearInterval(timer);
+      native.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+      video.remove();
+    },
+  };
+}
+
 async function startGameShare() {
   if (isSharingGameView()) return;
   if (!state.room) throw new Error("join the session first (Sessions & connection)");
@@ -88,7 +125,13 @@ async function startGameShare() {
   if (!el?.captureStream) throw new Error("no game canvas available to capture");
   let stream;
   try {
-    stream = el.captureStream(30);
+    if (el.width > MAX_W || el.height > MAX_H) {
+      const scaled = scaledBoardStream(el);
+      stream = scaled.stream;
+      gameView._cleanup = scaled.cleanup;
+    } else {
+      stream = el.captureStream(30);
+    }
   } catch {
     throw new Error("the browser blocked board capture — a scene asset loaded from another site without permissions can cause this");
   }
@@ -107,6 +150,8 @@ export function stopGameShare(reason) {
   if (!isSharingGameView()) return;
   // Ending the tracks ends the 'game' recording; the segment uploads itself.
   gameView.stream.getTracks().forEach((t) => t.stop());
+  gameView._cleanup?.();
+  gameView._cleanup = null;
   gameView.stream = null;
   if (gameView.sharerName === game.user.name) gameView.sharerName = null;
   game.socket.emit(SOCKET, { action: "gv-stopped", name: game.user.name });
