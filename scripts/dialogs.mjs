@@ -100,6 +100,26 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
   sessions = [];
   expanded = null; // { id, participants, tracks }
   loading = false;
+  _pollTimer = null;
+
+  /** While the window shows an uploading track, refresh every 5s so the
+   *  DM sees the percentage climb and "uploading" flip to Download on its
+   *  own — no close/reopen dance. */
+  _schedulePoll() {
+    clearTimeout(this._pollTimer);
+    if (!this.rendered || !this.expanded?.tracks.some((t) => !t.complete)) return;
+    this._pollTimer = setTimeout(() => {
+      this._refreshExpanded().catch(() => {}).finally(() => this._schedulePoll());
+    }, 5000);
+  }
+
+  async _refreshExpanded() {
+    const id = this.expanded?.id;
+    const client = requireClient();
+    if (!id || !client || !this.rendered) return;
+    this.expanded = await this._buildExpanded(client, id);
+    this.render({ force: true });
+  }
 
   async load() {
     const client = requireClient();
@@ -118,24 +138,37 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     // Second click on the open session collapses it.
     if (this.expanded?.id === sessionId) {
       this.expanded = null;
+      clearTimeout(this._pollTimer);
       this.render({ force: true });
       return;
     }
     const client = requireClient();
     if (!client) return;
+    this.expanded = await this._buildExpanded(client, sessionId);
+    this.render({ force: true });
+    this._schedulePoll();
+  }
+
+  async _buildExpanded(client, sessionId) {
     const detail = await client.getSession(sessionId);
     const names = new Map(detail.participants.map((p) => [p.id, p.display_name]));
-    this.expanded = {
+    return {
       id: sessionId,
-      tracks: detail.tracks.map((t) => ({
-        id: t.id,
-        label: `${names.get(t.participant_id) ?? "Player"} · ${t.kind}`,
-        when: t.started_at ? new Date(t.started_at).toLocaleString() : "",
-        complete: t.status === "complete",
-        size: sdk().formatBytes(t.bytes_uploaded ?? 0),
-      })),
+      tracks: detail.tracks.map((t) => {
+        const complete = t.status === "complete";
+        // uploaded/recorded is honest progress; cap at 99 until the server
+        // confirms completion, and stay indeterminate before any report.
+        const pct = t.bytes_recorded > 0 ? Math.min(99, Math.floor(((t.bytes_uploaded ?? 0) / t.bytes_recorded) * 100)) : null;
+        return {
+          id: t.id,
+          label: `${names.get(t.participant_id) ?? "Player"} · ${t.kind}`,
+          when: t.started_at ? new Date(t.started_at).toLocaleString() : "",
+          complete,
+          size: sdk().formatBytes(t.bytes_uploaded ?? 0),
+          uploadingLabel: pct === null ? "uploading…" : `uploading · ${pct}%`,
+        };
+      }),
     };
-    this.render({ force: true });
   }
   async download(trackId) {
     const client = requireClient();
@@ -195,6 +228,12 @@ class VideosWindow extends HandlebarsApplicationMixin(ApplicationV2) {
     await promptJoin(ses.invite_token, true);
     this.render({ force: true });
   }
+  _onClose(options) {
+    clearTimeout(this._pollTimer);
+    this._pollTimer = null;
+    return super._onClose?.(options);
+  }
+
   async _prepareContext(_options) {
     const activeId = activeSession()?.sessionId;
     return {

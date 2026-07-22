@@ -26,7 +26,7 @@
               {{#if complete}}
                 <button type="button" data-track="{{id}}" title="Download"><i class="fas fa-download"></i></button>
               {{else}}
-                <span class="rec-muted">uploading…</span>
+                <span class="rec-muted">{{uploadingLabel}}</span>
               {{/if}}
             </li>
           {{/each}}
