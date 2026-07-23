@@ -24,6 +24,7 @@ import {
   isSharingGameView,
   stopGameShare,
 } from "./game-view.mjs";
+import { startCamTelemetry, stopCamTelemetry } from "./telemetry.mjs";
 import { camConstraints, watchCamTracks } from "./av-devices.mjs";
 import { startLocalCapture, showRecordRequest, showRecordingNotice } from "./record-consent.mjs";
 import { attachAudio } from "./remote-audio.mjs";
@@ -143,6 +144,7 @@ export async function joinRoom(invite, opts = {}) {
   else ui.notifications.warn("Session Recorder: live preview unavailable; recording still works.");
 
   watchCamTracks();
+  startCamTelemetry();
   game.socket.emit(SOCKET, { action: "hello" });
   broadcastCamState();
   renderSettingsIfOpen();
@@ -216,6 +218,7 @@ export function teardown(message) {
       console.error("recorder-vtt | teardown step failed", err);
     }
   };
+  safely(() => stopCamTelemetry());
   safely(() => stopGameShare(null));
   safely(() => state.room?.leave());
   state.room = null;
