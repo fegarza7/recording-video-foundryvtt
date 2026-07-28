@@ -22,6 +22,10 @@ export const state = {
   recordPending: false,
   /** Devices chosen in the green room; camera re-acquire prefers them. */
   avPrefs: null,
+  /** Session-wide recording ceiling from the host's plan (join/roster). */
+  qualityPolicy: null,
+  /** How many rungs below the ceiling we've throttled (0 = at ceiling). */
+  profileStep: 0,
   /** Last presence Set from the room (participant ids currently online). */
   lastPresence: null,
   /** The "recording started" notice fires once per recording cycle. */

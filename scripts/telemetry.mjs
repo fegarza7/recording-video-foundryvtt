@@ -1,20 +1,23 @@
 /**
  * Camera telemetry: what the machine actually delivers vs what we asked
  * for. Answers "is this player's camera/machine struggling?" with data in
- * the session Diagnostics instead of guesswork. Collection only — no
- * behavior changes.
+ * the session Diagnostics — and, since 0.6.5, feeds the runtime throttle:
+ * sustained starvation while recording steps the profile down one rung.
  */
 import { state } from "./state.mjs";
+import { currentProfile, stepDownProfile } from "./av-devices.mjs";
 
 const SAMPLE_MS = 60_000; // one routine sample per minute
-const LOW_FPS = 24; // below this, log immediately as a warning
+const LOW_RATIO = 0.8; // below 80% of the target fps counts as low
 const LOW_GAP_MS = 30_000; // but never spam: min gap between low warnings
+const STEPDOWN_AFTER = 3; // consecutive low samples (~45s) before throttling
 
 const cam = {
   video: null, // hidden <video> consuming the cam stream (frame counter)
   frames: 0,
   windowStart: 0,
   lastLowLog: 0,
+  lowStreak: 0,
   timer: null,
   rvfcId: null,
 };
@@ -24,12 +27,13 @@ function logCamSettings() {
   const track = state.camStream?.getVideoTracks()[0];
   if (!track || !state.room) return;
   const s = track.getSettings();
+  const p = currentProfile();
   const cores = navigator.hardwareConcurrency ?? "?";
   const mem = navigator.deviceMemory ? `${navigator.deviceMemory}GB` : "?";
   state.room.log(
     "info",
     "cam-settings",
-    `requested 1280x720@30; got ${s.width}x${s.height}@${Math.round(s.frameRate ?? 0)} | ${track.label || "unknown camera"} | ${cores} cores, ${mem} RAM`,
+    `requested ${p.width}x${p.height}@${p.fps}; got ${s.width}x${s.height}@${Math.round(s.frameRate ?? 0)} | ${track.label || "unknown camera"} | ${cores} cores, ${mem} RAM`,
   );
 }
 
@@ -58,14 +62,28 @@ function sample(routine) {
   cam.frames = 0;
   cam.windowStart = performance.now();
 
-  const low = fps < LOW_FPS;
+  const target = currentProfile().fps;
+  const low = fps < target * LOW_RATIO;
+
+  // Runtime throttle: sustained starvation WHILE RECORDING steps down one
+  // rung (segment-boundary safe; rate-limited inside stepDownProfile).
+  if (low && state.capturing) {
+    cam.lowStreak += 1;
+    if (cam.lowStreak >= STEPDOWN_AFTER) {
+      cam.lowStreak = 0;
+      stepDownProfile(`${fps.toFixed(1)}fps sustained vs ${target} target`).catch(() => {});
+    }
+  } else if (!low) {
+    cam.lowStreak = 0;
+  }
+
   if (!routine && !low) return; // off-cycle checks only report trouble
   if (low && !routine) {
     const now = performance.now();
     if (now - cam.lastLowLog < LOW_GAP_MS) return;
     cam.lastLowLog = now;
   }
-  state.room.log(low ? "warn" : "info", "cam-fps", `${fps.toFixed(1)}fps delivered (30 requested)${state.capturing ? " while recording" : ""}`);
+  state.room.log(low ? "warn" : "info", "cam-fps", `${fps.toFixed(1)}fps delivered (${target} requested)${state.capturing ? " while recording" : ""}`);
 }
 
 /** Start after joining a room (needs state.camStream + state.room). */

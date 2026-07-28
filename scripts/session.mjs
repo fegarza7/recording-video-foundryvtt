@@ -92,9 +92,24 @@ export async function joinRoom(invite, opts = {}) {
   if (state.room) return;
   const apiBase = setting("apiBase");
   state.avPrefs = { camId: opts.camId ?? "", micId: opts.micId ?? "" };
-  state.camStream = await navigator.mediaDevices.getUserMedia(camConstraints());
 
+  // Join FIRST: the join response carries the session's quality ceiling
+  // (set by the host's plan), which decides what we ask the camera for.
   state.room = await sdk().Room.join({ apiBase, inviteToken: invite, displayName: game.user.name });
+  state.qualityPolicy = state.room.qualityPolicy ?? null;
+  state.profileStep = 0;
+  try {
+    state.camStream = await navigator.mediaDevices.getUserMedia(camConstraints());
+  } catch (err) {
+    // Joined but no camera: leave cleanly so the user can retry.
+    try {
+      state.room.leave();
+    } catch {
+      /* best-effort */
+    }
+    state.room = null;
+    throw err;
+  }
 
   openCamWindow("self", `${game.user.name} (you)`, state.camStream);
   // Honor the green-room toggles before anything is published or recorded:

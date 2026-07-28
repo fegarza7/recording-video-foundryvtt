@@ -5,18 +5,78 @@
 import { MOD, state, errNotify } from "./state.mjs";
 import { camWindows } from "./cam-windows.mjs";
 
-const CAM_CONSTRAINTS = {
-  video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-  audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-};
+const AUDIO_CONSTRAINTS = { echoCancellation: true, noiseSuppression: true, channelCount: 1 };
+
+/** The profile ladder, best first. The session's quality policy (the
+ *  host's plan, from the join response) caps which rungs are allowed;
+ *  runtime throttling steps DOWN the allowed rungs, never up. An
+ *  achievable profile delivered smoothly beats an ambitious one missed. */
+const LADDER = [
+  { width: 1920, height: 1080, fps: 30, label: "Full HD (1080p) @ 30" },
+  { width: 1280, height: 720, fps: 30, label: "HD (720p) @ 30" },
+  { width: 854, height: 480, fps: 30, label: "480p @ 30" },
+  { width: 854, height: 480, fps: 15, label: "480p @ 15" },
+];
+
+function allowedLadder() {
+  const p = state.qualityPolicy;
+  // No policy (old server / not joined yet): today's default, 720p down.
+  if (!p) return LADDER.slice(1);
+  const allowed = LADDER.filter((r) => r.width <= p.max_width && r.height <= p.max_height && r.fps <= p.max_fps);
+  return allowed.length ? allowed : LADDER.slice(1);
+}
+
+/** The rung we're currently targeting (ceiling minus throttle steps). */
+export function currentProfile() {
+  const ladder = allowedLadder();
+  return ladder[Math.min(state.profileStep, ladder.length - 1)];
+}
 
 /** Base constraints + the devices chosen in the green room (if any). */
 function camConstraints() {
   const prefs = state.avPrefs ?? {};
+  const profile = currentProfile();
   return {
-    video: { ...CAM_CONSTRAINTS.video, ...(prefs.camId ? { deviceId: { exact: prefs.camId } } : {}) },
-    audio: { ...CAM_CONSTRAINTS.audio, ...(prefs.micId ? { deviceId: { exact: prefs.micId } } : {}) },
+    video: {
+      width: { ideal: profile.width },
+      height: { ideal: profile.height },
+      frameRate: { ideal: profile.fps },
+      ...(prefs.camId ? { deviceId: { exact: prefs.camId } } : {}),
+    },
+    audio: { ...AUDIO_CONSTRAINTS, ...(prefs.micId ? { deviceId: { exact: prefs.micId } } : {}) },
   };
+}
+
+let lastStepDownAt = 0;
+
+/**
+ * Runtime throttle: drop one rung when telemetry says the machine can't
+ * sustain the current profile. Applies at a SEGMENT boundary (cams are
+ * avc1 — mid-file resolution changes corrupt them): the fresh stream
+ * replaces the live one and, if capturing, recording continues as a new
+ * file — the exact device-switch path users already know.
+ */
+export async function stepDownProfile(reason) {
+  const ladder = allowedLadder();
+  if (state.profileStep >= ladder.length - 1) return false; // at the floor
+  if (Date.now() - lastStepDownAt < 60_000) return false; // one step per minute
+  if (!state.room || !state.camStream) return false;
+  lastStepDownAt = Date.now();
+
+  state.profileStep += 1;
+  const profile = currentProfile();
+  state.room.log("warn", "profile-stepdown", `${profile.label} (${reason})`);
+  let fresh;
+  try {
+    fresh = await navigator.mediaDevices.getUserMedia(camConstraints());
+  } catch (err) {
+    state.profileStep -= 1; // couldn't apply — stay where we were
+    state.room.log("error", "profile-stepdown-failed", err.message);
+    return false;
+  }
+  await adoptFreshStream(fresh);
+  ui.notifications.info(`Session Recorder: video quality reduced to ${profile.label} to keep things smooth.`);
+  return true;
 }
 
 /** Re-acquire and hot-swap when a camera/mic track dies (device off,
